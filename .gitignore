@@ -8,10 +8,9 @@ dist/
 build/
 *.tsbuildinfo
 
-# Environment
+# Environment — ignore all real env files, keep only the documented example.
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
 # Prisma

@@ -1,0 +1,41 @@
+# Infrastructure-only compose file for LOCAL development.
+#
+# Brings up just PostgreSQL and Redis so you can run the API and worker on the
+# host (`npm run dev`) against containerised backing services. The full stack
+# (API, worker, frontend included) lives in the root `docker-compose.yml`.
+#
+#   docker compose -f docker-compose.infra.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: andisor-postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-andisor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-andisor_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-andisor}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - andisor_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-andisor}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: andisor-redis-dev
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - andisor_redis_dev:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  andisor_pg_dev:
+  andisor_redis_dev:

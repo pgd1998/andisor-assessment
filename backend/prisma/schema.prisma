@@ -1,0 +1,78 @@
+// Andisor Inventory — Prisma schema
+//
+// The product catalogue is a three-level hierarchy:
+//   Product ─▶ Primary variant (e.g. "Color") ─▶ Secondary variant (e.g. "Size")
+//
+// Rather than three separate tables, we model it as a single self-referential
+// `Product` table. Every node shares the same commercial columns (price, stock,
+// discount, active), so a nullable `parentId` + a `level` discriminator captures
+// the whole tree. This mirrors the recursive UI exactly, supports arbitrary depth,
+// and keeps queries/imports uniform.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductLevel {
+  PRODUCT
+  PRIMARY_VARIANT
+  SECONDARY_VARIANT
+}
+
+model Product {
+  id    String       @id @default(cuid())
+  level ProductLevel
+
+  // Self-relation: a node's parent and its ordered children.
+  parentId String?
+  parent   Product?  @relation("ProductHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Product[] @relation("ProductHierarchy")
+
+  // Display name. For a PRODUCT this is the product title; for a variant it is
+  // the variant value (e.g. "Red", "Small").
+  name String
+
+  // Commercial attributes shared by every level. Editable at any level.
+  price              Decimal @db.Decimal(10, 2)
+  discountPercentage Int     @default(0)
+  // Normalised to an integer at import time (the source data types it loosely).
+  inventory          Int     @default(0)
+  active             Boolean @default(true)
+
+  // Product-only attributes. Null on variant rows.
+  description String?
+  category    String?
+  image       String?
+  leadTime    String?
+
+  // Labels for the child variant dimension, e.g. "Color" / "Size".
+  // Held on the parent so the UI can render group headers.
+  primaryVariantName   String?
+  secondaryVariantName String?
+
+  // Position within the parent's children, preserving source ordering.
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([level])
+  @@map("products")
+}
+
+// Tracks each asynchronous bulk-import request so clients can poll progress.
+model ImportBatch {
+  id             String   @id @default(cuid())
+  totalProducts  Int
+  status         String   @default("QUEUED") // QUEUED | PROCESSING | COMPLETED | FAILED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("import_batches")
+}

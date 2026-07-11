@@ -1,0 +1,26 @@
+{
+  "name": "andisor-inventory-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack product inventory platform — Express + Prisma + PostgreSQL API with BullMQ async imports, and a Vite + React inventory UI.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "lint": "npm --workspace backend run lint && npm --workspace frontend run lint",
+    "format": "npm --workspace backend run format && npm --workspace frontend run format",
+    "format:check": "npm --workspace backend run format:check && npm --workspace frontend run format:check",
+    "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck",
+    "test": "npm --workspace backend run test && npm --workspace frontend run test",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down -v"
+  }
+}

@@ -34,6 +34,9 @@ RUN npm ci --workspace backend --include-workspace-root --omit=dev
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Disable Prisma's update check so it never attempts a network write at runtime
+# (the node_modules tree is owned by root / read-only for the app user).
+ENV CHECKPOINT_DISABLE=1
 
 # dumb-init gives us proper PID-1 signal handling for graceful shutdown;
 # openssl is required by the Prisma query engine at runtime.
@@ -45,10 +48,19 @@ RUN apk add --no-cache dumb-init openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# The Prisma CLI (a dev dep) is needed at runtime for `migrate deploy`, so copy
+# it, its `prisma` binary, and the migration/query engines from the builder.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/prisma ./backend/prisma
 COPY backend/package.json ./backend/
 COPY package.json ./
+
+# Entrypoint runs migrations + conditional seed, then execs the given command.
+COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Run as the built-in unprivileged user.
 USER node
@@ -56,6 +68,8 @@ USER node
 WORKDIR /app/backend
 EXPOSE 4000
 
-# Default command runs the API; the worker service overrides this in compose.
-ENTRYPOINT ["dumb-init", "--"]
+# dumb-init handles signals; the entrypoint script runs migrations + conditional
+# seed (when RUN_MIGRATIONS=true) before exec-ing the command below. The worker
+# service overrides CMD with the worker process and leaves RUN_MIGRATIONS unset.
+ENTRYPOINT ["dumb-init", "--", "docker-entrypoint.sh"]
 CMD ["node", "dist/server.js"]

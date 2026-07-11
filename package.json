@@ -21,6 +21,8 @@
     "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck",
     "test": "npm --workspace backend run test && npm --workspace frontend run test",
     "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down -v"
+    "docker:down": "docker compose down -v",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose stop postgres redis"
   }
 }

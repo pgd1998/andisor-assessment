@@ -41,5 +41,12 @@ module.exports = {
         '@typescript-eslint/no-unsafe-member-access': 'off',
       },
     },
+    {
+      // Operational scripts intentionally log to stdout.
+      files: ['src/scripts/**/*.ts', 'src/lib/seed.ts'],
+      rules: {
+        'no-console': 'off',
+      },
+    },
   ],
 };

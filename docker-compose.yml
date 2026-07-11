@@ -45,27 +45,6 @@ services:
       retries: 10
 
   # One-shot: applies migrations and seeds the database, then exits.
-  # Targets the `builder` stage because it carries the Prisma CLI, tsx, and the
-  # TypeScript sources needed to run migrations and the seed script.
-  migrate:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: builder
-    working_dir: /app/backend
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-andisor}:${POSTGRES_PASSWORD:-andisor_dev_password}@postgres:5432/${POSTGRES_DB:-andisor}?schema=public
-      SEED_FILE: /app/data/products.json
-    volumes:
-      - ./data:/app/data:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    # Apply migrations, then seed the catalogue.
-    command: >
-      sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"
-    restart: 'no'
-
   api:
     build:
       context: .
@@ -76,9 +55,15 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 4000
+      # The API container applies pending migrations and seeds an empty DB on
+      # boot (see backend/docker-entrypoint.sh), so no separate migrate step.
+      RUN_MIGRATIONS: 'true'
+      SEED_FILE: /app/data/products.json
       DATABASE_URL: postgresql://${POSTGRES_USER:-andisor}:${POSTGRES_PASSWORD:-andisor_dev_password}@postgres:5432/${POSTGRES_DB:-andisor}?schema=public
       REDIS_URL: redis://redis:6379
       CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-8080}
+    volumes:
+      - ./data:/app/data:ro
     ports:
       - '${API_PORT:-4000}:4000'
     depends_on:
@@ -86,8 +71,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     healthcheck:
       test:
         ['CMD', 'node', '-e', "require('http').get('http://localhost:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
@@ -96,9 +79,10 @@ services:
       retries: 5
 
   worker:
-    # Reuses the API image (same code); only the start command differs. The
-    # `api` dependency guarantees that image has been built before the worker
-    # starts, so it never runs a stale copy.
+    # Reuses the API image (same code); only the start command differs.
+    # RUN_MIGRATIONS is left unset, so the worker never runs migrations/seed —
+    # the API owns that. Waiting on the API (healthy) guarantees migrations have
+    # already been applied before the worker starts processing jobs.
     image: andisor-backend
     restart: unless-stopped
     command: ['node', 'dist/worker.js']
@@ -108,13 +92,11 @@ services:
       REDIS_URL: redis://redis:6379
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
   frontend:
     build:

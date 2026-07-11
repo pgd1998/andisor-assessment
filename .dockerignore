@@ -1,0 +1,16 @@
+# Root .dockerignore — applies to the build context for all images.
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/*.log
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+**/.DS_Store
+frontend/dist
+backend/dist
+Dummy API.json
+*.md

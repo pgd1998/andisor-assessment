@@ -1,0 +1,20 @@
+/**
+ * Column layout shared by every row level so cells line up vertically across
+ * products and their nested variants. Widths are expressed as grid template
+ * columns; the first (name) column flexes, the rest are fixed.
+ */
+export const GRID_TEMPLATE = 'minmax(220px, 2fr) 110px 90px 90px 110px 120px 140px 80px';
+
+export const COLUMN_HEADERS = [
+  'Product / Variant',
+  'Price',
+  'Discount',
+  'Inventory',
+  'Published',
+  'Category',
+  'Type',
+  '',
+] as const;
+
+/** Indentation (px) applied to the name cell per hierarchy depth. */
+export const INDENT_PER_LEVEL = 24;

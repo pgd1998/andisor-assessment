@@ -15,5 +15,11 @@ type AsyncRequestHandler = (req: Request, res: Response, next: NextFunction) => 
 export const asyncHandler =
   (handler: AsyncRequestHandler): RequestHandler =>
   (req: Request, res: Response, next: NextFunction): void => {
-    handler(req, res, next).catch(next);
+    void (async () => {
+      try {
+        await handler(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    })();
   };

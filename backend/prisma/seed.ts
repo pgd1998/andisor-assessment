@@ -42,11 +42,13 @@ async function main(): Promise<void> {
   );
 }
 
-main()
-  .catch((error: unknown) => {
+void (async (): Promise<void> => {
+  try {
+    await main();
+  } catch (error) {
     console.error('Seed failed:', error);
     process.exitCode = 1;
-  })
-  .finally(() => {
-    void prisma.$disconnect();
-  });
+  } finally {
+    await prisma.$disconnect();
+  }
+})();

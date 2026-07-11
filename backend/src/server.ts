@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
+import { closeBulkImportQueue } from './modules/bulk-import/bulk-import.queue';
 
 /**
  * HTTP entrypoint. Boots the Express app and installs graceful-shutdown handlers
@@ -16,24 +17,30 @@ function bootstrap(): void {
     logger.info(`API docs available at http://localhost:${env.API_PORT}/docs`);
   });
 
-  const shutdown = (signal: string): void => {
-    logger.info(`${signal} received — shutting down gracefully`);
-    server.close(() => {
-      void prisma.$disconnect().finally(() => {
-        logger.info('Shutdown complete');
-        process.exit(0);
-      });
+  const closeServer = async (): Promise<void> => {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
     });
+  };
+
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.info(`${signal} received — shutting down gracefully`);
 
     // Force-exit if graceful shutdown stalls.
-    setTimeout(() => {
+    const forceExit = setTimeout(() => {
       logger.error('Forced shutdown after timeout');
       process.exit(1);
-    }, 10_000).unref();
+    }, 10_000);
+    forceExit.unref();
+
+    await closeServer();
+    await Promise.allSettled([closeBulkImportQueue(), prisma.$disconnect()]);
+    logger.info('Shutdown complete');
+    process.exit(0);
   };
 
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-    process.on(signal, () => shutdown(signal));
+    process.on(signal, () => void shutdown(signal));
   }
 }
 

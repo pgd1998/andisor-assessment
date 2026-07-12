@@ -4,10 +4,7 @@ import { env } from './config/env';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { redisConnection } from './lib/redis';
-import {
-  markBatchesComplete,
-  processBulkImportJob,
-} from './modules/bulk-import/bulk-import.processor';
+import { processBulkImportJob } from './modules/bulk-import/bulk-import.processor';
 import { BULK_IMPORT_QUEUE, type BulkImportJobData } from './modules/bulk-import/bulk-import.types';
 
 /**
@@ -29,10 +26,6 @@ function bootstrap(): void {
   });
   worker.on('failed', (job, err) => {
     logger.error({ jobId: job?.id, err }, 'Bulk-import job failed');
-  });
-  // When the queue empties, settle any batches still marked PROCESSING.
-  worker.on('drained', () => {
-    void markBatchesComplete();
   });
 
   const shutdown = async (signal: string): Promise<void> => {

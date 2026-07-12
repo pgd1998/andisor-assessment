@@ -70,9 +70,14 @@ model Product {
 }
 
 // Tracks each asynchronous bulk-import request so clients can poll progress.
+// `processedCount`/`failedCount` are incremented per job by the worker, so the
+// batch settles to COMPLETED deterministically once every job finishes —
+// independent of queue-wide events.
 model ImportBatch {
   id             String   @id @default(cuid())
   totalProducts  Int
+  processedCount Int      @default(0)
+  failedCount    Int      @default(0)
   status         String   @default("QUEUED") // QUEUED | PROCESSING | COMPLETED | FAILED
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

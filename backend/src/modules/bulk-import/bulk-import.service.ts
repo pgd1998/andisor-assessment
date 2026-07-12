@@ -65,24 +65,19 @@ export const bulkImportService = {
       throw new NotFoundError(`Import batch "${batchId}" not found`);
     }
 
-    // Note: BullMQ job counts are queue-wide, not scoped to a single batch. With
-    // one queue per batch lifetime this is a faithful signal; for a multi-tenant
-    // system you would track per-batch progress in the DB instead (see the
-    // worker, which updates the batch's status as jobs complete).
-    const queue = getBulkImportQueue();
-    const [waiting, delayed, active, completed, failed] = await Promise.all([
-      queue.getWaitingCount(),
-      queue.getDelayedCount(),
-      queue.getActiveCount(),
-      queue.getCompletedCount(),
-      queue.getFailedCount(),
-    ]);
-
+    // Progress comes from the batch's own per-job counters (maintained by the
+    // worker), so it is accurate for this batch regardless of other activity.
+    const settled = batch.processedCount + batch.failedCount;
     return {
       batchId: batch.id,
       status: batch.status,
       totalProducts: batch.totalProducts,
-      counts: { queued: waiting + delayed, active, completed, failed },
+      counts: {
+        queued: Math.max(0, batch.totalProducts - settled),
+        active: 0,
+        completed: batch.processedCount,
+        failed: batch.failedCount,
+      },
     };
   },
 };

@@ -20,7 +20,8 @@ export function BulkImportModal({ state, onUpload, onClose }: BulkImportModalPro
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const busy = state.phase === 'uploading' || state.phase === 'processing';
+  const busy =
+    state.phase === 'uploading' || state.phase === 'processing' || state.phase === 'refreshing';
   const total = state.status?.totalProducts ?? 0;
   const done = (state.status?.counts.completed ?? 0) + (state.status?.counts.failed ?? 0);
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -143,15 +144,21 @@ function ProgressView({
   total: number;
   percent: number;
 }): JSX.Element {
+  const label =
+    phase === 'uploading'
+      ? 'Uploading & queueing…'
+      : phase === 'refreshing'
+        ? 'Updating inventory…'
+        : `Processing ${done} / ${total || '…'}`;
+  const width = phase === 'uploading' ? 10 : phase === 'refreshing' ? 100 : Math.max(percent, 5);
+
   return (
     <div className="py-4">
-      <p className="mb-3 text-sm text-text-muted">
-        {phase === 'uploading' ? 'Uploading & queueing…' : `Processing ${done} / ${total || '…'}`}
-      </p>
+      <p className="mb-3 text-sm text-text-muted">{label}</p>
       <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
         <div
           className="h-full rounded-full bg-accent-blue transition-all"
-          style={{ width: `${phase === 'uploading' ? 10 : Math.max(percent, 5)}%` }}
+          style={{ width: `${width}%` }}
         />
       </div>
     </div>
@@ -165,27 +172,32 @@ function CompletedView({
   state: BulkImportState;
   onClose: () => void;
 }): JSX.Element {
-  const total = state.status?.totalProducts ?? 0;
+  const created = state.importedCount;
   const failed = state.status?.counts.failed ?? 0;
   return (
-    <div className="py-2">
-      <div className="mb-2 flex items-center gap-2 text-green-600">
-        <span className="text-xl" aria-hidden="true">
+    <div className="py-4">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600"
+          aria-hidden="true"
+        >
           ✓
         </span>
-        <p className="font-medium">Import complete</p>
+        <div>
+          <p className="font-medium text-indigo">Uploaded successfully</p>
+          <p className="mt-1 text-sm text-text-muted">
+            {created} product{created === 1 ? '' : 's'} imported
+            {failed > 0 ? `, ${failed} failed` : ''}.
+          </p>
+        </div>
       </div>
-      <p className="text-sm text-text-muted">
-        {total - failed} product{total - failed === 1 ? '' : 's'} created
-        {failed > 0 ? `, ${failed} failed` : ''}. They now appear at the top of the list.
-      </p>
-      <div className="mt-5 flex justify-end">
+      <div className="mt-6 flex justify-center">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          className="rounded-lg bg-accent-blue px-6 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
-          View products
+          Close
         </button>
       </div>
     </div>

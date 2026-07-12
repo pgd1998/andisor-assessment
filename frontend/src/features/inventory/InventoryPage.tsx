@@ -1,44 +1,65 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useProducts, useUpdateProduct } from '../../api/hooks';
 import type { EditableField } from '../../api/types';
 import { useEditStore } from '../../store/editStore';
 import { BulkImportModal } from './BulkImportModal';
 import { InventoryTable } from './InventoryTable';
-import { Toast } from './Toast';
 import { useBulkImport } from './useBulkImport';
 
 const PAGE_SIZE = 5;
 
 /**
- * Inventory screen. Owns pagination/search/sort state, wires the products query
- * to the table, routes inline edits to both the session store and the API, and
- * hosts the bulk-import flow.
+ * Inventory screen. Owns pagination/search state, wires the products query to the
+ * table, routes inline edits to both the session store and the API, and hosts the
+ * bulk-import flow.
  */
 export function InventoryPage(): JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  // Default order preserves the catalogue; switched to `newest` after an import
-  // so the freshly created products land at the top of page 1.
-  const [sort, setSort] = useState<'oldest' | 'newest'>('oldest');
   const [modalOpen, setModalOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
+  // Newest-first by default, so freshly imported products surface at the top of
+  // page 1 without any special post-import navigation.
   const listParams = useMemo(
-    () => ({ page, pageSize: PAGE_SIZE, sort, ...(search ? { search } : {}) }),
-    [page, search, sort],
+    () => ({ page, pageSize: PAGE_SIZE, sort: 'newest' as const, ...(search ? { search } : {}) }),
+    [page, search],
   );
 
   const { data, isLoading, isError, error, isFetching, refetch } = useProducts(listParams);
   const updateProduct = useUpdateProduct(listParams);
   const setEdit = useEditStore((state) => state.setEdit);
+  const bulkImport = useBulkImport();
 
-  // On import completion: surface the new products (newest-first, page 1) + toast.
-  const bulkImport = useBulkImport((total) => {
-    setSort('newest');
-    setPage(1);
-    setToast(`${total} product${total === 1 ? '' : 's'} imported — shown at the top.`);
-  });
+  // ── Bulk-import completion, driven by what's actually rendered ──────────────
+  // When the worker finishes (phase === 'refreshing'), snapshot the currently
+  // rendered total, force a refetch, and only mark the import complete once the
+  // rendered query data reflects the new products. The on-screen table is the
+  // single source of truth — not the cache or a status count.
+  const importPhase = bulkImport.state.phase;
+  const importedCount = bulkImport.state.importedCount;
+  const targetTotalRef = useRef<number | null>(null);
+  const { confirmVisible } = bulkImport;
+
+  useEffect(() => {
+    if (importPhase !== 'refreshing') {
+      targetTotalRef.current = null;
+      return;
+    }
+    // On entering the refreshing phase: capture the target total and reset the
+    // view to page 1 (newest-first) so the imported rows are on the visible page.
+    if (targetTotalRef.current === null) {
+      const current = data?.meta.total ?? 0;
+      targetTotalRef.current = current + importedCount;
+      setPage(1);
+      void refetch();
+      return;
+    }
+    // The rendered data now reflects the imported products → declare success.
+    if (!isFetching && (data?.meta.total ?? 0) >= targetTotalRef.current) {
+      confirmVisible();
+    }
+  }, [importPhase, importedCount, data, isFetching, refetch, confirmVisible]);
 
   const handleEdit = (id: string, field: EditableField, value: string | number | boolean): void => {
     // 1) Persist to the session store so a refresh keeps the edit.
@@ -86,8 +107,6 @@ export function InventoryPage(): JSX.Element {
           onClose={closeModal}
         />
       )}
-
-      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

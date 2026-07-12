@@ -29,7 +29,7 @@ describe('useBulkImport', () => {
     vi.useRealTimers();
   });
 
-  it('uploads, polls, and completes — invoking onCompleted with the total', async () => {
+  it('uploads, polls, and reaches the refreshing phase once the worker finishes', async () => {
     uploadMock.mockResolvedValue({ batchId: 'b1', totalProducts: 2, statusUrl: '/x' });
     statusMock.mockResolvedValue({
       batchId: 'b1',
@@ -38,15 +38,18 @@ describe('useBulkImport', () => {
       counts: { queued: 0, active: 0, completed: 2, failed: 0 },
     });
 
-    const onCompleted = vi.fn();
-    const { result } = renderHook(() => useBulkImport(onCompleted), { wrapper });
+    const { result } = renderHook(() => useBulkImport(), { wrapper });
 
     await act(async () => {
       await result.current.start(new File(['[]'], 'products.json'));
     });
 
-    await waitFor(() => expect(result.current.state.phase).toBe('completed'));
-    expect(onCompleted).toHaveBeenCalledWith(2);
+    // The hook hands off in 'refreshing'; the owner confirms the rows are visible.
+    await waitFor(() => expect(result.current.state.phase).toBe('refreshing'));
+    expect(result.current.state.importedCount).toBe(2);
+
+    act(() => result.current.confirmVisible());
+    expect(result.current.state.phase).toBe('completed');
     expect(uploadMock).toHaveBeenCalledOnce();
   });
 

@@ -27,6 +27,26 @@
   --color-text: #1e1a37;
   --color-text-muted: #6b6880;
 
-  --radius: 10px;
-  --shadow-card: 0 1px 3px rgba(30, 26, 55, 0.08), 0 1px 2px rgba(30, 26, 55, 0.04);
+  /* Semantic stock/status colors — deliberately separate from the brand accent. */
+  --color-in-stock: #1f9d6b;
+  --color-in-stock-tint: #e7f6ef;
+  --color-low-stock: #d98a1f;
+  --color-low-stock-tint: #fdf2e2;
+  --color-out-stock: #d62e3f;
+  --color-out-stock-tint: #fdecee;
+
+  /* Andisor's signature gradients (coral → lavender, and the indigo header). */
+  --gradient-brand: linear-gradient(120deg, #ef3346 0%, #d37ce9 100%);
+  --gradient-header: linear-gradient(120deg, #1e1a37 0%, #0b0c22 55%, #211d3f 100%);
+  --gradient-lavender: linear-gradient(120deg, #847cb3 0%, #357fef 100%);
+
+  /* Indigo-tinted elevation (matches andisor.com's colored shadows). */
+  --shadow-card: 0 1px 3px rgba(30, 26, 55, 0.06), 0 8px 24px -12px rgba(30, 26, 55, 0.16);
+  --shadow-raised: 0 12px 32px -12px rgba(30, 26, 55, 0.28);
+  --shadow-glow-coral: 0 8px 24px -8px rgba(239, 51, 70, 0.45);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --font-mono: 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }

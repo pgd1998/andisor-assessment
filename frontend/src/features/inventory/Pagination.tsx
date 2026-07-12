@@ -12,19 +12,19 @@ export function Pagination({ meta, onPageChange }: PaginationProps): JSX.Element
   const to = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex items-center justify-between border-t border-surface-border bg-white px-4 py-3 text-sm">
+    <div className="flex items-center justify-between border-t border-surface-border bg-surface-muted/40 px-5 py-3.5 text-sm">
       <p className="text-text-muted">
-        Showing <span className="font-medium text-indigo">{from}</span>–
-        <span className="font-medium text-indigo">{to}</span> of{' '}
-        <span className="font-medium text-indigo">{total}</span>
+        Showing <span className="font-mono tabular font-medium text-indigo">{from}</span>–
+        <span className="font-mono tabular font-medium text-indigo">{to}</span> of{' '}
+        <span className="font-mono tabular font-medium text-indigo">{total}</span>
       </p>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <PagerButton disabled={!hasPreviousPage} onClick={() => onPageChange(page - 1)}>
           Previous
         </PagerButton>
-        <span className="px-3 text-text-muted">
-          Page <span className="font-medium text-indigo">{page}</span> of {totalPages}
+        <span className="px-2 font-mono text-xs tabular text-text-muted">
+          {page} / {totalPages}
         </span>
         <PagerButton disabled={!hasNextPage} onClick={() => onPageChange(page + 1)}>
           Next
@@ -49,10 +49,10 @@ function PagerButton({
       disabled={disabled}
       onClick={onClick}
       className={[
-        'rounded-md border px-3 py-1.5 font-medium transition-colors',
+        'rounded-lg border bg-white px-3.5 py-1.5 font-medium transition-all',
         disabled
-          ? 'cursor-not-allowed border-surface-border text-surface-border'
-          : 'border-surface-border text-indigo hover:border-accent-blue hover:text-accent-blue',
+          ? 'cursor-not-allowed border-surface-border/60 text-surface-border'
+          : 'border-surface-border text-indigo hover:border-accent-blue hover:text-accent-blue hover:shadow-sm active:scale-[0.97]',
       ].join(' ')}
     >
       {children}

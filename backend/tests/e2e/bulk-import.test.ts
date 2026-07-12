@@ -36,8 +36,12 @@ const product = (title: string): Record<string, unknown> => ({
 const workers: Worker[] = [];
 
 // Start each test from an empty queue so job counts and processing are isolated.
+// Wait for the queue's Redis connection to be ready first — obliterating while
+// the connection is still initialising can drop the socket ("socket hang up").
 beforeEach(async () => {
-  await getBulkImportQueue().obliterate({ force: true });
+  const queue = getBulkImportQueue();
+  await queue.waitUntilReady();
+  await queue.obliterate({ force: true });
 });
 
 afterEach(async () => {

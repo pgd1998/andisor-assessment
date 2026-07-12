@@ -34,6 +34,7 @@ export const productRepository = {
     skip: number;
     take: number;
     search?: string | undefined;
+    order: 'asc' | 'desc';
   }): Promise<{ items: ProductWithChildren[]; total: number }> {
     const where: Prisma.ProductWhereInput = {
       level: ProductLevel.PRODUCT,
@@ -44,7 +45,7 @@ export const productRepository = {
       prisma.product.findMany({
         where,
         include: productTreeInclude,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: params.order },
         skip: params.skip,
         take: params.take,
       }),

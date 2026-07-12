@@ -36,6 +36,11 @@ export const openApiDocument = {
             schema: { type: 'integer', default: 5, minimum: 1, maximum: 100 },
           },
           { name: 'search', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: { type: 'string', enum: ['oldest', 'newest'], default: 'oldest' },
+          },
         ],
         responses: {
           '200': { description: 'A page of products', content: jsonContent('PaginatedProducts') },

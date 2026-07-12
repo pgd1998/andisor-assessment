@@ -93,6 +93,9 @@ export const listProductsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(5),
   search: z.string().trim().min(1).optional(),
+  // Ordering by creation time. `newest` surfaces freshly bulk-imported products
+  // at the top of page 1; the default preserves the original catalogue order.
+  sort: z.enum(['oldest', 'newest']).default('oldest'),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 

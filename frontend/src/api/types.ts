@@ -59,6 +59,23 @@ export interface SingleResponse<T> {
   data: T;
 }
 
+/** Response from enqueuing a bulk import. */
+export interface BulkImportAccepted {
+  batchId: string;
+  totalProducts: number;
+  statusUrl: string;
+}
+
+export type BulkImportStatusValue = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+/** Progress of a bulk-import batch. */
+export interface BulkImportStatus {
+  batchId: string;
+  status: BulkImportStatusValue;
+  totalProducts: number;
+  counts: { queued: number; active: number; completed: number; failed: number };
+}
+
 /** Fields editable inline. The API accepts any subset via PATCH. */
 export type EditableField = 'name' | 'price' | 'discountPercentage' | 'inventory' | 'active';
 

@@ -43,9 +43,19 @@ export default {
           sunken: '#f4f3f0',
           border: '#e6e6e6',
         },
+        // Semantic stock/status colors (separate from the brand accent).
+        stock: {
+          in: '#1f9d6b',
+          intint: '#e7f6ef',
+          low: '#d98a1f',
+          lowtint: '#fdf2e2',
+          out: '#d62e3f',
+          outtint: '#fdecee',
+        },
       },
       fontFamily: {
         sans: [
+          'Inter Variable',
           'Inter',
           'system-ui',
           '-apple-system',
@@ -55,9 +65,38 @@ export default {
           'Arial',
           'sans-serif',
         ],
+        mono: ['Fragment Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
+      },
+      backgroundImage: {
+        'gradient-brand': 'var(--gradient-brand)',
+        'gradient-header': 'var(--gradient-header)',
+        'gradient-lavender': 'var(--gradient-lavender)',
       },
       boxShadow: {
-        card: '0 1px 3px rgba(30, 26, 55, 0.08), 0 1px 2px rgba(30, 26, 55, 0.04)',
+        card: 'var(--shadow-card)',
+        raised: 'var(--shadow-raised)',
+        'glow-coral': 'var(--shadow-glow-coral)',
+      },
+      borderRadius: {
+        xl: '14px',
+        '2xl': '18px',
+      },
+      keyframes: {
+        'expand-in': {
+          from: { opacity: '0', transform: 'translateY(-4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'save-pulse': {
+          '0%': { backgroundColor: 'rgba(31, 157, 107, 0.18)' },
+          '100%': { backgroundColor: 'transparent' },
+        },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+        'expand-in': 'expand-in 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'save-pulse': 'save-pulse 900ms ease-out',
       },
     },
   },

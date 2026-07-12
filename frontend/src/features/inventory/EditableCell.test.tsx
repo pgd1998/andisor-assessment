@@ -70,13 +70,13 @@ describe('EditableCell', () => {
       />,
     );
     const button = screen.getByRole('button', { name: /edit name/i });
-    expect(button.className).not.toContain('border-amber-400');
+    expect(button.className).not.toContain('ring-amber-300');
 
     rerender(
       <EditableCell value="Blue" display="Blue" ariaLabel="name" onCommit={vi.fn()} edited />,
     );
     expect(screen.getByRole('button', { name: /edit name/i }).className).toContain(
-      'border-amber-400',
+      'ring-amber-300',
     );
   });
 });

@@ -73,15 +73,28 @@ export function ProductRow({
     <>
       <div
         role="row"
-        className="grid items-center border-b border-surface-border/70 bg-white hover:bg-surface-muted/60"
+        className={[
+          'group grid items-center border-b border-surface-border/60 transition-colors',
+          depth === 0
+            ? 'bg-white hover:bg-accent-blue/[0.03]'
+            : 'animate-expand-in bg-surface-sunken/25 hover:bg-accent-blue/[0.04]',
+        ].join(' ')}
         style={{ gridTemplateColumns: GRID_TEMPLATE }}
       >
         {/* Name cell: chevron + avatar/swatch + editable name */}
         <div
           role="cell"
-          className="flex items-center gap-2 py-2 pr-2"
+          className="relative flex items-center gap-2 py-2.5 pr-2"
           style={{ paddingLeft: 12 + depth * INDENT_PER_LEVEL }}
         >
+          {/* Hierarchy guide-line: a subtle vertical connector on nested rows. */}
+          {depth > 0 && (
+            <span
+              className="absolute bottom-0 top-0 w-px bg-surface-border"
+              style={{ left: 12 + (depth - 1) * INDENT_PER_LEVEL + 21 }}
+              aria-hidden="true"
+            />
+          )}
           <button
             type="button"
             aria-label={isExpandable ? (expanded ? 'Collapse' : 'Expand') : undefined}
@@ -89,8 +102,8 @@ export function ProductRow({
             disabled={!isExpandable}
             onClick={() => setExpanded((value) => !value)}
             className={[
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded text-indigo-soft',
-              isExpandable ? 'hover:bg-surface-sunken' : 'invisible',
+              'relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-indigo-soft transition-colors',
+              isExpandable ? 'hover:bg-white hover:text-accent-blue hover:shadow-sm' : 'invisible',
             ].join(' ')}
           >
             <Chevron open={expanded} />
@@ -106,11 +119,16 @@ export function ProductRow({
               ariaLabel={`name of ${node.name}`}
               onCommit={(next) => callbacks.onEdit(node.id, 'name', next)}
             />
-            {/* Product description as a muted, truncated subtitle. */}
-            {node.level === 'PRODUCT' && node.description && (
-              <p className="truncate px-2 text-xs text-text-muted" title={node.description}>
-                {node.description}
-              </p>
+            {/* Meta line: variant preview + truncated description (products only). */}
+            {node.level === 'PRODUCT' && (node.description || node.primaryVariants.length > 0) && (
+              <div className="flex min-w-0 items-center gap-2 px-2 pt-0.5">
+                {!expanded && node.primaryVariants.length > 0 && <VariantPreview product={node} />}
+                {node.description && (
+                  <p className="min-w-0 truncate text-xs text-text-muted" title={node.description}>
+                    {node.description}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -137,7 +155,8 @@ export function ProductRow({
           />
         </Cell>
 
-        <Cell>
+        <Cell className="gap-1">
+          <StockDot inventory={effective.inventory} />
           <EditableCell
             value={effective.inventory}
             type="number"
@@ -168,18 +187,20 @@ export function ProductRow({
         </Cell>
       </div>
 
-      {/* Expanded children, introduced by a group-label row */}
+      {/* Expanded children, introduced by a group-label row. A tinted band + a
+          vertical guide-line make the parent→child relationship read at a glance. */}
       {expanded && isExpandable && childGroupLabel && (
         <div
           role="row"
-          className="grid border-b border-surface-border/40 bg-surface-sunken/60"
+          className="grid animate-expand-in bg-surface-sunken/50"
           style={{ gridTemplateColumns: GRID_TEMPLATE }}
         >
           <div
             role="cell"
-            className="py-1 text-xs font-medium uppercase tracking-wide text-text-muted"
+            className="flex items-center gap-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-brand-purple"
             style={{ paddingLeft: 12 + (depth + 1) * INDENT_PER_LEVEL + 24 }}
           >
+            <span className="h-px w-3 bg-brand-purple/40" aria-hidden="true" />
             {childGroupLabel}
           </div>
         </div>
@@ -283,4 +304,41 @@ function InitialAvatar({ name }: { name: string }): JSX.Element {
 
 function textOrDash(value: string | null): string {
   return value && value.length > 0 ? value : '—';
+}
+
+/**
+ * Compact preview of a collapsed product's variants: a small cluster of colour
+ * swatches plus a count, so variant richness is visible without expanding.
+ */
+function VariantPreview({ product }: { product: Product }): JSX.Element {
+  const colours = product.primaryVariants;
+  const sizes = colours[0]?.secondaryVariants.length ?? 0;
+  const shown = colours.slice(0, 4);
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-surface-border bg-white py-0.5 pl-1 pr-2"
+      title={`${colours.length} colours${sizes > 0 ? `, ${sizes} sizes each` : ''}`}
+    >
+      <span className="flex -space-x-1" aria-hidden="true">
+        {shown.map((c) => (
+          <span
+            key={c.id}
+            className="h-3 w-3 rounded-full border border-white"
+            style={{ backgroundColor: swatchColor(c.name) }}
+          />
+        ))}
+      </span>
+      <span className="font-mono text-[10px] text-text-muted">
+        {colours.length}
+        {sizes > 0 ? `·${sizes}` : ''}
+      </span>
+    </span>
+  );
+}
+
+/** A small dot conveying stock health, next to the inventory figure. */
+function StockDot({ inventory }: { inventory: number }): JSX.Element {
+  const color = inventory === 0 ? 'bg-stock-out' : inventory <= 10 ? 'bg-stock-low' : 'bg-stock-in';
+  return <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} aria-hidden="true" />;
 }

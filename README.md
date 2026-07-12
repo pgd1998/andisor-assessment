@@ -5,13 +5,17 @@ A full-stack product inventory system built for the Andisor assessment.
 - **Backend** — Express + TypeScript CRUD API over a three-level product
   hierarchy (Product → Colour variant → Size variant), persisted with
   **Prisma + PostgreSQL**, plus an **asynchronous bulk-import** endpoint backed
-  by a **BullMQ (Redis)** queue.
+  by a **BullMQ (Redis)** queue. API docs at `/docs` are **generated from the
+  same Zod schemas** that validate requests, so they never drift.
 - **Frontend** — a **Vite + React + TypeScript** inventory page with a nested
   expand/collapse table, **inline editing at every level**, **5-per-page
-  pagination**, and **session-persisted edits** (they survive a refresh).
+  pagination**, and **session-persisted edits** (they survive a refresh). A
+  **bulk-import modal** uploads a JSON file and shows live progress, only
+  confirming success once the new products are actually on screen.
 - **One-command run** — `docker compose up --build` brings up the whole stack.
 
-The UI is themed to the [andisor.com](https://andisor.com) brand palette.
+The UI is designed to the [andisor.com](https://andisor.com) brand — its palette,
+Inter + Fragment Mono typography, gradients, and soft indigo-tinted depth.
 
 ---
 
@@ -19,7 +23,6 @@ The UI is themed to the [andisor.com](https://andisor.com) brand palette.
 
 - [Quick start (Docker)](#quick-start-docker)
 - [Architecture](#architecture)
-- [Local development](#local-development-without-docker-for-the-app)
 - [API reference](#api-reference)
 - [Environment variables](#environment-variables)
 - [Seed data](#seed-data)
@@ -109,47 +112,13 @@ and `schema` (Zod) as the single source of truth for validation.
 
 ---
 
-## Local development (without Docker for the app)
-
-Run PostgreSQL and Redis in containers, but the API/worker/frontend on your host
-for fast iteration.
-
-```bash
-# 1. Install dependencies (npm workspaces — installs backend + frontend)
-npm install
-
-# 2. Start just the database and Redis
-npm run infra:up            # docker compose up -d postgres redis
-
-# 3. Configure env for host-run services
-cp .env.example .env
-#    Then edit .env: change the `postgres`/`redis` hostnames in DATABASE_URL and
-#    REDIS_URL to `localhost` (they default to the Docker service names).
-
-# 4. Set up the database
-npm --workspace backend run db:migrate      # apply migrations
-npm --workspace backend run db:seed         # seed the catalogue
-
-# 5. Run the app (in separate terminals)
-npm run dev:backend         # API at http://localhost:4000
-npm --workspace backend run dev:worker      # BullMQ worker
-npm run dev:frontend        # UI at http://localhost:5173 (proxies /api → :4000)
-```
-
-Stop the infra with `npm run infra:down`.
-
-> If ports 5432/6379 are taken locally, set `POSTGRES_PORT`/`REDIS_PORT` in
-> `.env` and update `DATABASE_URL`/`REDIS_URL` to match.
-
----
-
 ## API reference
 
 Base URL: `http://localhost:4000/api`. Interactive docs at `/docs`.
 
 | Method   | Endpoint                          | Description                                             |
 | -------- | --------------------------------- | ------------------------------------------------------ |
-| `GET`    | `/products`                       | Paginated list of products (`?page=&pageSize=&search=`, default 5/page) |
+| `GET`    | `/products`                       | Paginated list (`?page=&pageSize=&search=&sort=newest\|oldest`, default 5/page) |
 | `POST`   | `/products`                       | Create a product with nested variants                  |
 | `GET`    | `/products/:id`                   | A single product with its full variant subtree         |
 | `PATCH`  | `/products/:id`                   | Update **any** attribute of **any** node (product or variant) |
@@ -225,19 +194,37 @@ re-run the seed.
 
 ## Testing & quality
 
+The backend tests run against real Postgres + Redis, using a **separate test
+database** (`andisor_test`) they can freely truncate.
+
+With the stack already running (`docker compose up`), install dev dependencies,
+create the test database once, and run the checks:
+
 ```bash
-# Everything (both workspaces) — requires postgres + redis running (npm run infra:up)
-npm test
+npm install           # dev dependencies for the test runners (once)
+
+# One-time: create the test database (safe to re-run — errors if it exists)
+docker compose exec postgres psql -U andisor -d andisor -c "CREATE DATABASE andisor_test;"
+
+# Run the checks (both workspaces)
+npm test              # backend (23) + frontend (12)
 npm run lint
 npm run typecheck
 npm run format:check
 ```
 
+> The test suite pushes the schema to `andisor_test` automatically and uses an
+> isolated Redis DB, so it passes even while the full stack is running. Test
+> config lives in `.env.test` (committed; no secrets) and targets the
+> docker-compose default ports.
+
 - **Backend** — 23 tests (Vitest + supertest): e2e coverage of every endpoint
   (happy + error paths), the async bulk-import flow verified end-to-end with an
-  in-process worker, plus mapper/schema units.
-- **Frontend** — 10 tests (Vitest + Testing Library): 3-level expand/collapse,
-  inline edit commit/cancel/validation, and session-persistence rehydration.
+  in-process worker, plus mapper/schema units. Tests run against an isolated
+  test database and Redis DB, so they pass even with the stack running.
+- **Frontend** — 12 tests (Vitest + Testing Library): 3-level expand/collapse,
+  inline edit commit/cancel/validation, session-persistence rehydration, and the
+  bulk-import upload/polling flow.
 - Strict TypeScript, ESLint, and Prettier are enforced across both packages.
 
 ---
@@ -256,6 +243,7 @@ andisor-assessment/
 │   └── src/
 │       ├── app.ts / server.ts / worker.ts
 │       ├── config/ lib/ middleware/
+│       ├── docs/               # OpenAPI generated from Zod schemas
 │       └── modules/
 │           ├── products/       # router→controller→service→repository→mapper→schema
 │           ├── bulk-import/     # queue producer + worker processor
@@ -265,7 +253,8 @@ andisor-assessment/
     └── src/
         ├── api/                # typed client + React Query hooks
         ├── store/              # Zustand session-persisted edit store
-        └── features/inventory/ # nested table, inline cells, pagination
+        ├── theme/              # Andisor design tokens (CSS variables)
+        └── features/inventory/ # table, stat cards, inline cells, bulk-import modal
 ```
 
 ---
@@ -276,7 +265,8 @@ andisor-assessment/
   depth instead of three parallel tables; mirrors the recursive UI and keeps
   imports uniform.
 - **Zod as the single source of truth** — the same schemas validate API DTOs,
-  the seed file, and bulk-import payloads, so validation never drifts.
+  the seed file, and bulk-import payloads, **and generate the OpenAPI docs** at
+  `/docs`, so validation and documentation never drift from the code.
 - **Layered backend** — thin controllers, business logic in services,
   persistence isolated in repositories; easy to test and to swap out.
 - **Async by design** — bulk import returns `202` with a queryable `batchId`;
@@ -286,6 +276,12 @@ andisor-assessment/
   `sessionStorage`, so a refresh preserves them.
 - **Migrate-on-boot** — the API container runs `prisma migrate deploy` (idempotent)
   and seeds an empty DB at startup, so `docker compose up` needs zero manual steps.
+- **Rendered UI as the source of truth for import success** — the bulk-import
+  modal declares success only after the newly created products are actually
+  rendered in the table, not merely present in the cache or a status count.
+- **Design tokens over ad-hoc styles** — the brand palette, gradients, and shadows
+  live as CSS variables mirrored in the Tailwind theme, so the whole UI re-themes
+  from one place.
 
 ---
 
@@ -296,23 +292,27 @@ Enhancements delivered beyond the brief, and ideas for where this would go next.
 **Delivered**
 
 1. **Layered, testable architecture** (router → controller → service → repository).
-2. **Zod-driven validation** shared across API, seed, and imports.
+2. **Zod as one source of truth** — the same schemas validate the API, seed, and
+   imports, **and generate the OpenAPI docs** at `/docs`.
 3. **Async bulk import returns `202` + a pollable batch status** — real job
-   semantics, not fire-and-forget.
-4. **Optimistic UI + session persistence** — instant edits that survive refresh.
-5. **Structured logging** (pino) and **centralized typed error handling** with a
+   semantics, not fire-and-forget, with per-job progress counters.
+4. **Bulk-import UI** — upload a JSON file, watch live progress, and see the
+   imported products appear in the table before success is confirmed.
+5. **Optimistic UI + session persistence** — instant edits that survive refresh.
+6. **Structured logging** (pino) and **centralized typed error handling** with a
    consistent JSON error envelope.
-6. **Self-documenting API** via Swagger UI at `/docs`.
 7. **Accessibility** — keyboard-navigable expand/collapse and inline edit, ARIA
-   roles, and a `role="switch"` toggle.
-8. **Brand-faithful theming** — palette extracted from andisor.com, exposed as
-   both Tailwind tokens and CSS variables for easy re-theming.
+   roles, a `role="switch"` toggle, and `prefers-reduced-motion` support.
+8. **Brand-designed UI** — Andisor palette, Inter + Fragment Mono typography, KPI
+   stat cards, hierarchy guide-lines and animated expand for the 3-level tree,
+   semantic stock indicators, and inline-edit micro-interactions.
 9. **Full one-command Docker orchestration** with healthchecks, ordered startup,
    and idempotent migrate-on-boot.
 
 **Next steps (not built)**
 
-1. **Live import progress** via Server-Sent Events / WebSocket (per-batch bar).
+1. **Push-based import progress** — swap the modal's status polling for
+   Server-Sent Events / WebSocket for instant per-job updates.
 2. **Optimistic concurrency** (`updatedAt` version checks) to reconcile concurrent
    edits between the session store and the server.
 3. **Undo/redo** for inline edits, leveraging the existing edit store.
@@ -321,12 +321,3 @@ Enhancements delivered beyond the brief, and ideas for where this would go next.
 6. **Row virtualization** for very large catalogues.
 7. **Auth & RBAC** (JWT) and **idempotency keys** on create/bulk endpoints.
 8. **Dead-letter queue** with an admin retry view for failed import jobs.
-
----
-
-## Notes
-
-- Base-image CVEs reported by scanners originate from upstream `node:alpine` /
-  `nginx:alpine` and are out of scope to fully remediate for this exercise.
-- Dev-only audit warnings (Vite/Vitest transitive) don't ship in the production
-  build.

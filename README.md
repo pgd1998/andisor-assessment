@@ -22,6 +22,7 @@ The UI is themed to the [andisor.com](https://andisor.com) brand palette.
 - [Local development](#local-development-without-docker-for-the-app)
 - [API reference](#api-reference)
 - [Environment variables](#environment-variables)
+- [Seed data](#seed-data)
 - [Testing & quality](#testing--quality)
 - [Project structure](#project-structure)
 - [Design decisions](#design-decisions)
@@ -197,6 +198,28 @@ The key ones:
 
 Environment is validated at boot with Zod ([`backend/src/config/env.ts`](backend/src/config/env.ts)) —
 the app fails fast with a readable error if anything is missing or malformed.
+
+---
+
+## Seed data
+
+`data/products.json` is the dataset the database is seeded from
+([`backend/src/lib/seed.ts`](backend/src/lib/seed.ts) reads it). It contains 10
+products, each a three-level hierarchy:
+
+```
+Product
+└─ primary_variants[]      (grouped by primary_variant_name, e.g. "Color")
+   └─ secondary_variants[] (grouped by secondary_variant_name, e.g. "Size")
+```
+
+It's loaded automatically on a fresh `docker compose up` (empty DB), or manually
+with `npm --workspace backend run db:seed` (which wipes and reloads).
+
+To seed a different catalogue, replace `data/products.json` with a file of the
+same shape — validated against
+[`product.schema.ts`](backend/src/modules/products/product.schema.ts) — and
+re-run the seed.
 
 ---
 

@@ -8,12 +8,10 @@ dist/
 build/
 *.tsbuildinfo
 
-# Environment — ignore real env files, but keep the documented example and the
-# (secret-free) test config so the test suite runs on a fresh clone.
+# Environment — ignore real env files, keep only the documented example.
 .env
 .env.*
 !.env.example
-!.env.test
 
 # Prisma
 backend/prisma/*.db

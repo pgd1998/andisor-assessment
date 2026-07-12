@@ -213,10 +213,11 @@ npm run typecheck
 npm run format:check
 ```
 
-> The test suite pushes the schema to `andisor_test` automatically and uses an
-> isolated Redis DB, so it passes even while the full stack is running. Test
-> config lives in `.env.test` (committed; no secrets) and targets the
-> docker-compose default ports.
+> The suite derives its test targets from the app's own `DATABASE_URL` /
+> `REDIS_URL` — reusing the same Postgres/Redis the stack runs on (whatever ports
+> those are) while isolating onto a separate database and Redis index. It pushes
+> the schema to `andisor_test` automatically, so it passes even while the full
+> stack is running.
 
 - **Backend** — 23 tests (Vitest + supertest): e2e coverage of every endpoint
   (happy + error paths), the async bulk-import flow verified end-to-end with an

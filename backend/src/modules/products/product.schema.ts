@@ -103,3 +103,40 @@ export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 export const productIdParamSchema = z.object({
   id: z.string().min(1),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Response shapes (documentation contract)
+//
+// These describe what the API returns (see `product.mapper.ts`). They exist so
+// the OpenAPI docs are generated from the same Zod definitions the code follows.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A single serialised node (product or variant), without children. */
+export const productNodeSchema = z.object({
+  id: z.string(),
+  level: z.enum(['PRODUCT', 'PRIMARY_VARIANT', 'SECONDARY_VARIANT']),
+  parentId: z.string().nullable(),
+  name: z.string(),
+  price: z.number(),
+  discountPercentage: z.number().int(),
+  inventory: z.number().int(),
+  active: z.boolean(),
+  description: z.string().nullable(),
+  category: z.string().nullable(),
+  image: z.string().nullable(),
+  leadTime: z.string().nullable(),
+  primaryVariantName: z.string().nullable(),
+  secondaryVariantName: z.string().nullable(),
+  position: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** A product with its full nested variant subtree. */
+export const productTreeSchema = productNodeSchema.extend({
+  primaryVariants: z.array(
+    productNodeSchema.extend({
+      secondaryVariants: z.array(productNodeSchema),
+    }),
+  ),
+});

@@ -35,10 +35,17 @@ export function ProductRow({
   node,
   depth,
   callbacks,
+  secondaryLabel,
 }: {
   node: AnyNode;
   depth: number;
   callbacks: RowCallbacks;
+  /**
+   * Header label for a primary variant's children (e.g. "Size"). Both dimension
+   * names live on the PRODUCT, so the product passes its `secondaryVariantName`
+   * down for its primary variants to render above their own children.
+   */
+  secondaryLabel?: string | null;
 }): JSX.Element {
   const edits = useEditStore((state) => state.edits);
   const [expanded, setExpanded] = useState(false);
@@ -55,10 +62,11 @@ export function ProductRow({
       : [];
   const isExpandable = children.length > 0;
 
-  const groupLabel = hasPrimary(node)
+  // Header shown above this node's children.
+  const childGroupLabel = hasPrimary(node)
     ? (node.primaryVariantName ?? 'Variants')
     : hasSecondary(node)
-      ? (node.secondaryVariantName ?? 'Variants')
+      ? (secondaryLabel ?? 'Variants')
       : null;
 
   return (
@@ -98,6 +106,12 @@ export function ProductRow({
               ariaLabel={`name of ${node.name}`}
               onCommit={(next) => callbacks.onEdit(node.id, 'name', next)}
             />
+            {/* Product description as a muted, truncated subtitle. */}
+            {node.level === 'PRODUCT' && node.description && (
+              <p className="truncate px-2 text-xs text-text-muted" title={node.description}>
+                {node.description}
+              </p>
+            )}
           </div>
         </div>
 
@@ -143,13 +157,19 @@ export function ProductRow({
           />
         </Cell>
 
-        <Cell className="text-text-muted">{textOrDash((effective as ProductNode).category)}</Cell>
-        <Cell className="text-text-muted">{levelLabel(node)}</Cell>
-        <Cell />
+        {/* Category, Type and Lead Time are product-level attributes; a dash on
+            variant rows keeps the columns visually aligned. */}
+        <Cell className="text-text-muted">
+          {node.level === 'PRODUCT' ? textOrDash((effective as ProductNode).category) : '—'}
+        </Cell>
+        <Cell className="text-text-muted">{node.level === 'PRODUCT' ? 'Product' : '—'}</Cell>
+        <Cell className="text-text-muted">
+          {node.level === 'PRODUCT' ? textOrDash((effective as ProductNode).leadTime) : '—'}
+        </Cell>
       </div>
 
       {/* Expanded children, introduced by a group-label row */}
-      {expanded && isExpandable && groupLabel && (
+      {expanded && isExpandable && childGroupLabel && (
         <div
           role="row"
           className="grid border-b border-surface-border/40 bg-surface-sunken/60"
@@ -160,13 +180,21 @@ export function ProductRow({
             className="py-1 text-xs font-medium uppercase tracking-wide text-text-muted"
             style={{ paddingLeft: 12 + (depth + 1) * INDENT_PER_LEVEL + 24 }}
           >
-            {groupLabel}
+            {childGroupLabel}
           </div>
         </div>
       )}
       {expanded &&
         children.map((child) => (
-          <ProductRow key={child.id} node={child} depth={depth + 1} callbacks={callbacks} />
+          <ProductRow
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            callbacks={callbacks}
+            // A product hands its secondary dimension name to its primary
+            // variants, so they can label their own children (e.g. "Size").
+            secondaryLabel={hasPrimary(node) ? node.secondaryVariantName : (secondaryLabel ?? null)}
+          />
         ))}
     </>
   );
@@ -201,15 +229,8 @@ function Chevron({ open }: { open: boolean }): JSX.Element {
 
 /** Avatar for products, colour swatch for primary variants, dot for secondary. */
 function NodeGlyph({ node, depth }: { node: AnyNode; depth: number }): JSX.Element {
-  if (node.level === 'PRODUCT' && node.image) {
-    return (
-      <img
-        src={node.image}
-        alt=""
-        className="h-7 w-7 shrink-0 rounded-full border border-surface-border object-cover"
-        loading="lazy"
-      />
-    );
+  if (node.level === 'PRODUCT') {
+    return <ProductAvatar name={node.name} image={node.image} />;
   }
   if (node.level === 'PRIMARY_VARIANT') {
     return (
@@ -223,22 +244,41 @@ function NodeGlyph({ node, depth }: { node: AnyNode; depth: number }): JSX.Eleme
   if (depth > 0 && node.level === 'SECONDARY_VARIANT') {
     return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-muted" aria-hidden="true" />;
   }
+  return <InitialAvatar name={node.name} />;
+}
+
+/**
+ * Product thumbnail with a graceful fallback: renders the image, but if it fails
+ * to load (e.g. an unreachable external URL) it swaps to an initial-letter
+ * avatar so rows never show a broken-image icon.
+ */
+function ProductAvatar({ name, image }: { name: string; image: string | null }): JSX.Element {
+  const [failed, setFailed] = useState(false);
+
+  if (!image || failed) {
+    return <InitialAvatar name={name} />;
+  }
+
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-xs text-text-muted">
-      {node.name.charAt(0).toUpperCase()}
-    </span>
+    <img
+      src={image}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-7 w-7 shrink-0 rounded-full border border-surface-border bg-surface-sunken object-cover"
+      loading="lazy"
+    />
   );
 }
 
-function levelLabel(node: AnyNode): string {
-  switch (node.level) {
-    case 'PRODUCT':
-      return 'Product';
-    case 'PRIMARY_VARIANT':
-      return 'Colour';
-    case 'SECONDARY_VARIANT':
-      return 'Size';
-  }
+function InitialAvatar({ name }: { name: string }): JSX.Element {
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-lavender/30 to-accent-blue/20 text-xs font-medium text-indigo"
+      aria-hidden="true"
+    >
+      {name.charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 function textOrDash(value: string | null): string {

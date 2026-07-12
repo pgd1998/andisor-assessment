@@ -3,7 +3,7 @@
  * products and their nested variants. Widths are expressed as grid template
  * columns; the first (name) column flexes, the rest are fixed.
  */
-export const GRID_TEMPLATE = 'minmax(220px, 2fr) 110px 90px 90px 110px 120px 140px 80px';
+export const GRID_TEMPLATE = 'minmax(220px, 2fr) 110px 90px 90px 110px 130px 100px 110px';
 
 export const COLUMN_HEADERS = [
   'Product / Variant',
@@ -13,7 +13,7 @@ export const COLUMN_HEADERS = [
   'Published',
   'Category',
   'Type',
-  '',
+  'Lead Time',
 ] as const;
 
 /** Indentation (px) applied to the name cell per hierarchy depth. */

@@ -1,4 +1,12 @@
-import type { ApiError, PaginatedResponse, Product, ProductUpdate, SingleResponse } from './types';
+import type {
+  ApiError,
+  BulkImportAccepted,
+  BulkImportStatus,
+  PaginatedResponse,
+  Product,
+  ProductUpdate,
+  SingleResponse,
+} from './types';
 
 // Base URL is injected at build time; defaults to the dev proxy path.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
@@ -42,6 +50,7 @@ export interface ListParams {
   page: number;
   pageSize: number;
   search?: string;
+  sort?: 'oldest' | 'newest';
 }
 
 export const productsApi = {
@@ -50,6 +59,7 @@ export const productsApi = {
       page: String(params.page),
       pageSize: String(params.pageSize),
       ...(params.search ? { search: params.search } : {}),
+      ...(params.sort ? { sort: params.sort } : {}),
     });
     return request<PaginatedResponse<Product>>(`/products?${query.toString()}`);
   },
@@ -63,5 +73,36 @@ export const productsApi = {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
+  },
+};
+
+export const bulkImportApi = {
+  /** Uploads a JSON file of products; the API queues them and returns 202. */
+  async upload(file: File): Promise<BulkImportAccepted> {
+    const form = new FormData();
+    form.append('file', file);
+    // Note: no Content-Type header — the browser sets the multipart boundary.
+    const response = await fetch(`${API_BASE_URL}/products/bulk-import`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as ApiError | null;
+      throw new ApiRequestError(
+        response.status,
+        body?.error.code ?? 'UNKNOWN',
+        body?.error.message ?? response.statusText,
+      );
+    }
+    const json = (await response.json()) as SingleResponse<BulkImportAccepted>;
+    return json.data;
+  },
+
+  /** Fetches the current status/progress of a bulk-import batch. */
+  async status(batchId: string): Promise<BulkImportStatus> {
+    const json = await request<SingleResponse<BulkImportStatus>>(
+      `/products/bulk-import/${batchId}`,
+    );
+    return json.data;
   },
 };

@@ -13,8 +13,6 @@ export function useProducts(params: ListParams) {
   return useQuery({
     queryKey: productKeys.list(params),
     queryFn: () => productsApi.list(params),
-    // Keep the previous page visible while the next one loads (no flicker).
-    placeholderData: (previous) => previous,
   });
 }
 

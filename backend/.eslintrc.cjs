@@ -6,6 +6,10 @@ module.exports = {
     ecmaVersion: 2022,
     sourceType: 'module',
     project: './tsconfig.json',
+    // Anchor the tsconfig path to this file's directory so type-aware linting
+    // resolves correctly regardless of the working directory ESLint is run from
+    // (e.g. an IDE linting from the monorepo root).
+    tsconfigRootDir: __dirname,
   },
   plugins: ['@typescript-eslint'],
   extends: [

@@ -38,11 +38,12 @@ export const productService = {
 
   /** Returns a paginated page of top-level products with their subtrees. */
   async list(query: ListProductsQuery): Promise<PaginatedResult<ProductWithChildren>> {
-    const { page, pageSize, search } = query;
+    const { page, pageSize, search, sort } = query;
     const { items, total } = await productRepository.findManyProducts({
       skip: (page - 1) * pageSize,
       take: pageSize,
       search,
+      order: sort === 'newest' ? 'desc' : 'asc',
     });
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

@@ -77,29 +77,46 @@ docker compose down -v
 ## Architecture
 
 ```
-                    ┌─────────────┐        HTTP        ┌──────────────┐
-   Browser ───────▶ │  frontend   │ ─────/api proxy──▶ │     api      │
-                    │  (nginx)    │                    │  (Express)   │
-                    └─────────────┘                    └──────┬───────┘
-                                                              │
-                            enqueue job (202 Accepted)        │  Prisma
-                                                              ▼
-                    ┌─────────────┐   BullMQ jobs      ┌──────────────┐
-                    │   worker    │ ◀──────────────────│    redis     │
-                    │  (BullMQ)   │                    └──────────────┘
-                    └──────┬──────┘
-                           │  Prisma (create products)
-                           ▼
-                    ┌──────────────┐
-                    │   postgres   │
-                    └──────────────┘
+                  ┌────────────┐      HTTP       ┌──────────────┐
+   Browser ─────▶ │  frontend  │ ──/api proxy──▶ │     api      │
+                  │   (nginx)  │                 │  (Express)   │
+                  └────────────┘                 └──┬────────┬──┘
+                                                    │        │
+                   ┌────────────────────────────────┘        └───────────────┐
+                   │ CRUD: read/write directly                BULK IMPORT:   │
+                   │ (Prisma)                                 enqueue jobs   │
+                   │                                          (BullMQ)       │
+                   ▼                                                         ▼
+            ┌──────────────┐                                         ┌──────────────┐
+            │   postgres   │                                         │    redis     │
+            └──────────────┘                                         │ (job queue)  │
+                   ▲                                                 └──────┬───────┘
+                   │                                                        │
+                   │ Prisma: create each product              BullMQ delivers jobs
+                   │                                                        │
+                   │                  ┌──────────────┐                      │
+                   └──────────────────│    worker    │ ◀────────────────────┘
+                                      │   (BullMQ)   │
+                                      └──────────────┘
 ```
+
+**Two distinct paths.** Normal CRUD goes `api → Prisma → postgres`. Bulk import
+goes `api → BullMQ → redis`, and a separate **worker** process consumes those
+jobs and writes to postgres with Prisma. (Prisma only ever talks to postgres;
+Redis is reached only through BullMQ.)
 
 **Why a separate worker?** The bulk-import endpoint accepts a file, enqueues one
 job per product, and returns `202 Accepted` **immediately** — it never waits for
 creation. A dedicated worker process (its own container) drains the queue and
 creates the products. This keeps the API responsive under large imports, which
 is the core requirement of the async task.
+
+**Producer / consumer** — the API is the producer
+([`bulk-import.service.ts`](backend/src/modules/bulk-import/bulk-import.service.ts)
+calls `queue.addBulk()`); the worker is the consumer
+([`worker.ts`](backend/src/worker.ts) runs
+`new Worker(BULK_IMPORT_QUEUE, processBulkImportJob)`). They're linked only by
+the shared queue name in Redis.
 
 **The data model** is a single self-referential `Product` table (`parentId` +
 `level` enum: `PRODUCT | PRIMARY_VARIANT | SECONDARY_VARIANT`). One recursive
